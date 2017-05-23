@@ -1,0 +1,6 @@
+cat
+chipmunk
+dog
+giraffe
+squirrel
+wolf

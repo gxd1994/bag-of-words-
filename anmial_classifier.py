@@ -1,0 +1,180 @@
+from sklearn import preprocessing,metrics
+
+import time,os
+
+import cPickle
+
+# Multinomial Naive Bayes Classifier    
+def naive_bayes_classifier(train_x, train_y):    
+    from sklearn.naive_bayes import MultinomialNB    
+    model = MultinomialNB(alpha=0.01)    
+    model.fit(train_x, train_y)    
+    return model    
+    
+    
+# KNN Classifier    
+def knn_classifier(train_x, train_y):    
+    from sklearn.neighbors import KNeighborsClassifier    
+    model = KNeighborsClassifier()    
+    model.fit(train_x, train_y)    
+    return model    
+    
+    
+# Logistic Regression Classifier    
+def logistic_regression_classifier(train_x, train_y):    
+    from sklearn.linear_model import LogisticRegression    
+    model = LogisticRegression(penalty='l2')    
+    model.fit(train_x, train_y)    
+    return model    
+    
+    
+# Random Forest Classifier    
+def random_forest_classifier(train_x, train_y):    
+    from sklearn.ensemble import RandomForestClassifier    
+    model = RandomForestClassifier(n_estimators=8)    
+    model.fit(train_x, train_y)    
+    return model    
+    
+    
+# Decision Tree Classifier    
+def decision_tree_classifier(train_x, train_y):    
+    from sklearn import tree    
+    model = tree.DecisionTreeClassifier()    
+    model.fit(train_x, train_y)    
+    return model    
+    
+    
+# GBDT(Gradient Boosting Decision Tree) Classifier    
+def gradient_boosting_classifier(train_x, train_y):    
+    from sklearn.ensemble import GradientBoostingClassifier    
+    model = GradientBoostingClassifier(n_estimators=200)    
+    model.fit(train_x, train_y)    
+    return model    
+    
+    
+# SVM Classifier    
+def svm_classifier(train_x, train_y):    
+    from sklearn.svm import SVC    
+    model = SVC()       #, probability=True)    
+    model.fit(train_x, train_y)    
+    return model    
+    
+# SVM Classifier using cross validation    
+def svm_cross_validation(train_x, train_y):    
+    from sklearn.model_selection import GridSearchCV    
+    from sklearn.svm import SVC    
+    model = SVC(kernel='rbf') #, probability=True)    
+    param_grid = {'C': [1e-3, 1e-2, 1e-1, 1, 10, 100, 1000,10000], 'gamma': [1,0.1,0.01,0.001, 0.0001]}    
+    grid_search = GridSearchCV(model, param_grid, n_jobs = 1, verbose=1)    
+    grid_search.fit(train_x, train_y)    
+    best_parameters = grid_search.best_estimator_.get_params()    
+    for para, val in list(best_parameters.items()):    
+        print(para, val)    
+    model = SVC(kernel='rbf', C=best_parameters['C'], gamma=best_parameters['gamma'], probability=True)    
+    model.fit(train_x, train_y)    
+    return model  
+
+
+
+def anmial_classifier(cfg,select_classifiers,train_features,train_labels,test_features,test_labels,label_dict,val,test):
+     # classifiers = {'NB':naive_bayes_classifier}
+                   # 'KNN':knn_classifier,
+                   # 'LR':logistic_regression_classifier,
+                   # 'RF':random_forest_classifier,
+                   # 'DT':decision_tree_classifier,
+                   # 'SVM':svm_classifier,
+                   # 'SVMCV':svm_cross_validation,
+                   # 'GBDT':gradient_boosting_classifier}
+
+    classifiers={
+    			'NB':naive_bayes_classifier,
+    			'KNN':knn_classifier,
+                'LR':logistic_regression_classifier,
+                'RF':random_forest_classifier,
+                'DT':decision_tree_classifier,
+                'SVM':svm_classifier,
+                'SVMCV':svm_cross_validation,
+                'GBDT':gradient_boosting_classifier
+    }
+
+
+
+    train_x = train_features
+    train_y = train_labels
+    test_x = test_features
+    test_y = test_labels
+
+    model_save_file = cfg.classifier_save_path
+    model_save = {}
+
+
+
+    label_dict_inverse = dict([(v,k) for k,v in label_dict.iteritems()])
+    target_names = [label_dict_inverse[i]  for i in xrange(len(label_dict_inverse))]
+
+    if test == False:
+
+        for classifier in select_classifiers:    
+            print('******************* %s ********************' % classifier)  
+
+            start_time = time.time()    
+            model = classifiers[classifier](train_x, train_y)   
+
+            print "classifier train set result:"
+            print('training took %fs!' % (time.time() - start_time))  
+
+
+            if val == True:    #output train data result
+
+                result = model.predict(train_x)
+                print metrics.classification_report(train_y,result,target_names = target_names) 
+
+
+            result = model.predict(test_x)
+
+            print "val set result:"
+            print metrics.classification_report(test_y,result,target_names = target_names) 
+
+            print "(lab,pre):",zip([label_dict_inverse[i] for i in list(test_y)],[label_dict_inverse[i] for i in list(result)])
+
+
+            if model_save_file != None:    
+                model_save[classifier] = model    
+        
+
+        if model_save_file != None:   
+
+            cPickle.dump(model_save, open(model_save_file, 'wb'))    
+
+
+    else:
+
+
+
+        if not os.path.exists(model_save_file):
+            print "do not exists clf mode file ..please train data first"
+        else:
+            model_save = cPickle.load(open(model_save_file, 'rb'))
+
+
+        for classifier in select_classifiers: 
+
+            print('******************* %s ********************' % classifier)  
+
+            start_time = time.time()    
+
+            result = model_save[classifier].predict(test_x)
+
+            print('classifier test took %fs!' % (time.time() - start_time))  
+
+            if cfg.test_is_carry_label == True:
+
+                print metrics.classification_report(test_y,result,target_names = target_names) 
+
+                print "(label,predit):",zip([label_dict_inverse[i] for i in list(test_y)],[label_dict_inverse[i] for i in list(result)])
+
+            else:
+
+                print result
+
+                pass
